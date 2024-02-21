@@ -13,21 +13,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
+const socket_io_1 = require("socket.io");
+const http_1 = require("http");
 const position_route_1 = __importDefault(require("../routes/positions/position.route"));
 const persitence_1 = require("../db/persitence");
-// import '../db/model/category.model.js'
-// import '../db/model/image.model.js'
 class Server {
     constructor() {
         this.app = (0, express_1.default)();
         this.port = process.env.PORT || '3001';
+        this.httpServer = (0, http_1.createServer)(this.app);
+        this.io = new socket_io_1.Server(this.httpServer);
         this.listen();
         this.middlelware();
         this.routes();
         this.conexion();
+        this.setupWebSocket();
     }
     listen() {
-        this.app.listen(this.port, () => {
+        this.httpServer.listen(this.port, () => {
             console.log('Server run on port ', this.port);
         });
     }
@@ -48,6 +51,21 @@ class Server {
     }
     middlelware() {
         this.app.use(express_1.default.json());
+    }
+    setupWebSocket() {
+        this.io.on('connection', (socket) => {
+            console.log('A user connected');
+            // Eventos personalizados
+            socket.on('chat message', (msg) => {
+                console.log('Message received:', msg);
+                // Emitir un evento a todos los clientes conectados
+                this.io.emit('chat message', msg);
+            });
+            // Evento de desconexión
+            socket.on('disconnect', () => {
+                console.log('A user disconnected');
+            });
+        });
     }
 }
 exports.default = Server;
