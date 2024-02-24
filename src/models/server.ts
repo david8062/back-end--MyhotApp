@@ -1,38 +1,36 @@
 import express, { Application } from 'express';
+import { createServer, Server as HttpServer } from 'http';
 import { Server as IoServer, Socket } from 'socket.io';
-import { createServer, Server as SocketIOServer } from 'http';
+import logger from 'morgan';
 import routesPosition from '../routes/positions/position.route';
 import { sequelize } from '../db/persitence';
 
 class Server {
     private app: Application;
-    private port: string;
-    private httpServer: SocketIOServer; 
+    private httpServer: HttpServer;
     private io: IoServer;
 
     constructor() {
         this.app = express();
-        this.port = process.env.PORT || '3001';
         this.httpServer = createServer(this.app);
         this.io = new IoServer(this.httpServer);
-        this.listen();
-        this.middlelware();
+        this.configureServer();
+        this.configureWebSocket();
         this.routes();
         this.conexion();
-        this.setupWebSocket();
     }
 
-    listen() {
-        this.httpServer.listen(this.port, () => {
-            console.log('Server run on port ', this.port);
+    private configureServer() {
+        const port = process.env.PORT || 3001;
+        this.app.use(logger('dev'));
+        this.app.get('/', (req, res) => {
+            res.sendFile(process.cwd() + '/client/index.html');
+        });
+        this.httpServer.listen(port, () => {
+            console.log(`Servidor en ejecución en el puerto ${port}`);
         });
     }
-
-    routes() {
-        this.app.use('/api/positions', routesPosition);
-    }
-
-    async conexion() {
+     async conexion() {
         try {
             await sequelize.authenticate();
             await sequelize.sync();
@@ -42,26 +40,26 @@ class Server {
         }
     }
 
-    middlelware() {
-        this.app.use(express.json());
-    }
-
-    setupWebSocket() {
+    private configureWebSocket() {
         this.io.on('connection', (socket: Socket) => {
-            console.log('A user connected');
+            console.log('Un usuario se ha conectado');
 
             // Eventos personalizados
             socket.on('chat message', (msg) => {
-                console.log('Message received:', msg);
-                // Emitir un evento a todos los clientes conectados
+                console.log('Mensaje recibido:', msg);
+               
                 this.io.emit('chat message', msg);
             });
 
             // Evento de desconexión
             socket.on('disconnect', () => {
-                console.log('A user disconnected');
+                console.log('Un usuario se ha desconectado');
             });
         });
+    }
+
+    private routes() {
+        this.app.use('/api/positions', routesPosition);
     }
 }
 
